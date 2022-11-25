@@ -97,7 +97,7 @@ PairingPopup::PairingPopup(QWidget *parent) : QDialogBase(parent) {
 
     vlayout->addSpacing(30);
 
-    QLabel *title = new QLabel("Pair your device to your comma account", this);
+    QLabel *title = new QLabel("콤마 계정과 연결하기", this);
     title->setStyleSheet("font-size: 75px; color: black;");
     title->setWordWrap(true);
     vlayout->addWidget(title);
@@ -199,7 +199,7 @@ void PrimeUserWidget::replyFinished(const QString &response) {
   }
 
   QJsonObject json = doc.object();
-  points->setText(QString::number(json["points"].toInt()));
+  points->setText(QString::number(json["포인트"].toInt()));
 }
 
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
@@ -207,24 +207,24 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  QLabel *upgrade = new QLabel("Upgrade Now");
+  QLabel *upgrade = new QLabel("업그레이드하기");
   upgrade->setStyleSheet("font-size: 75px; font-weight: bold;");
   main_layout->addWidget(upgrade, 0, Qt::AlignTop);
   main_layout->addSpacing(50);
 
-  QLabel *description = new QLabel("Become a comma prime member at connect.comma.ai");
+  QLabel *description = new QLabel("콤마 프라임회원으로 등록 해보세요.");
   description->setStyleSheet("font-size: 60px; font-weight: light; color: white;");
   description->setWordWrap(true);
   main_layout->addWidget(description, 0, Qt::AlignTop);
 
   main_layout->addStretch();
 
-  QLabel *features = new QLabel("PRIME FEATURES:");
+  QLabel *features = new QLabel("프라임회원 주요 기능:");
   features->setStyleSheet("font-size: 41px; font-weight: bold; color: #E5E5E5;");
   main_layout->addWidget(features, 0, Qt::AlignBottom);
   main_layout->addSpacing(30);
 
-  QVector<QString> bullets = {"Remote access", "14 days of storage", "Developer perks"};
+  QVector<QString> bullets = {"원격 접속", "14일 동안 보관", "개발자 기능 사용"};
   for (auto &b: bullets) {
     const QString check = "<b><font color='#465BEA'>✓</font></b> ";
     QLabel *l = new QLabel(check + b);
@@ -253,20 +253,20 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   finishRegistationLayout->setContentsMargins(30, 75, 30, 45);
   finishRegistationLayout->setSpacing(0);
 
-  QLabel* registrationTitle = new QLabel("Finish Setup");
+  QLabel* registrationTitle = new QLabel("설정 끝내기");
   registrationTitle->setStyleSheet("font-size: 75px; font-weight: bold; margin-left: 55px;");
   finishRegistationLayout->addWidget(registrationTitle);
 
   finishRegistationLayout->addSpacing(30);
 
-  QLabel* registrationDescription = new QLabel("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer.");
+  QLabel* registrationDescription = new QLabel("기기를 콤마와 연결(connect.comma.ai) 하고 콤마 프라임을 사용해 보세요.");
   registrationDescription->setWordWrap(true);
   registrationDescription->setStyleSheet("font-size: 55px; font-weight: light; margin-left: 55px;");
   finishRegistationLayout->addWidget(registrationDescription);
 
   finishRegistationLayout->addStretch();
 
-  QPushButton* pair = new QPushButton("Pair device");
+  QPushButton* pair = new QPushButton("기기 연결하기");
   pair->setFixedHeight(220);
   pair->setStyleSheet(R"(
     QPushButton {
@@ -353,4 +353,3 @@ void SetupWidget::replyFinished(const QString &response, bool success) {
     }
   }
 }
-
