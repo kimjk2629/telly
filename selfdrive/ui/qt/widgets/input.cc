@@ -68,7 +68,7 @@ InputDialog::InputDialog(const QString &title, QWidget *parent, const QString &s
     vlayout->addWidget(sublabel, 1, Qt::AlignTop | Qt::AlignLeft);
   }
 
-  QPushButton* cancel_btn = new QPushButton("Cancel");
+  QPushButton* cancel_btn = new QPushButton("취소");
   cancel_btn->setFixedSize(386, 125);
   cancel_btn->setStyleSheet(R"(
     font-size: 48px;
@@ -165,7 +165,7 @@ void InputDialog::handleEnter() {
     done(QDialog::Accepted);
     emitText(line->text());
   } else {
-    setMessage("Need at least "+QString::number(minLength)+" characters!", false);
+    setMessage("최소 %n 자가 필요합니다!"+QString::number(minLength)+"", false);
   }
 }
 
@@ -218,12 +218,12 @@ ConfirmationDialog::ConfirmationDialog(const QString &prompt_text, const QString
 }
 
 bool ConfirmationDialog::alert(const QString &prompt_text, QWidget *parent) {
-  ConfirmationDialog d = ConfirmationDialog(prompt_text, "Ok", "", parent);
+  ConfirmationDialog d = ConfirmationDialog(prompt_text, "확인", "", parent);
   return d.exec();
 }
 
 bool ConfirmationDialog::confirm(const QString &prompt_text, QWidget *parent) {
-  ConfirmationDialog d = ConfirmationDialog(prompt_text, "Ok", "Cancel", parent);
+  ConfirmationDialog d = ConfirmationDialog(prompt_text, "확인", "", parent);
   return d.exec();
 }
 
@@ -255,6 +255,6 @@ RichTextDialog::RichTextDialog(const QString &prompt_text, const QString &btn_te
 }
 
 bool RichTextDialog::alert(const QString &prompt_text, QWidget *parent) {
-  auto d = RichTextDialog(prompt_text, "Ok", parent);
+  auto d = RichTextDialog(prompt_text, "확인", parent);
   return d.exec();
 }
