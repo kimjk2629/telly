@@ -2240,6 +2240,17 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
                                             "도로 커브 구간에서 자동으로 속도를 줄입니다.",
                                             "../assets/offroad/icon_road.png",
                                             this));
+  toggles.append(new ParamControl("TurnVisionControl",
+                                  "Enable vision based turn control",
+                                  "Use vision path predictions to estimate the appropiate speed to drive through turns ahead.",
+                                  "../assets/offroad/icon_road.png",
+                                  this));                                            
+
+  // toggles.append(new ParamControl("StopAtStopSign",
+  //                                 "Stop at Stop Light",
+  //                                 "Openpilot tries to stop at stop light.",
+  //                                 "../assets/offroad/icon_road.png",
+  //                                 this));   
 
   toggles.append(new ParamControl("SccSmootherSyncGasPressed",
                                             "크루즈 속도 동기화",
@@ -2276,6 +2287,12 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
                                             "../assets/offroad/icon_shell.png",
                                             this));
   
+  toggles.append(new ParamControl("ShowTrafficSignal",
+                                            "Show Traffic Signal",
+                                            "",
+                                            "../assets/offroad/icon_shell.png",
+                                            this));  
+  
   if (!useNM) toggles.append(new ParamControl("OpkrBatteryChargingControl",
                                             "Enable Battery Charging Control",
                                             "It uses the battery charge control function.",
@@ -2305,6 +2322,7 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
 //  toggleLayout->addWidget(new OPKRServerAPI());
   toggleLayout->addWidget(horizontal_line());
   toggleLayout->addWidget(new TimeZoneSelectCombo());
+  toggleLayout->addWidget(new DepartChimeAtResume());
 }
 
 SelectCar::SelectCar(QWidget* parent): QWidget(parent) {
