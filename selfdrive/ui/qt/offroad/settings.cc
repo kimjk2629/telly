@@ -2217,6 +2217,12 @@ CommunityPanel::CommunityPanel(QWidget* parent) : QWidget(parent) {
                                             "../assets/offroad/icon_openpilot.png",
                                             this));
 
+  toggles.append(new ParamControl("EnableRadarTracks",
+                                            "EnableRadarTracks",
+                                            "Using RadarTracks instead of SCC data",
+                                            "../assets/offroad/icon_openpilot.png",
+                                            this));
+
   toggles.append(new ParamControl("IsLdwsCar",
                                             "LDWS 차량",
                                             "LDWS 차량에서 활성화 하세요.",
