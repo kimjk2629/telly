@@ -71,8 +71,8 @@ class LatControlTorque(LatControl):
         isLowSpeed  = Params().get_bool('IsLowSpeedFactor')
 
       if isLowSpeed:
-        #low_speed_factor = interp(CS.vEgo, [0, 15], [500, 0]) # comma 1st
-        low_speed_factor = interp(CS.vEgo, [0, 10, 20], [500, 500, 200]) # comma 2nd
+        low_speed_factor = interp(CS.vEgo, [0, 15], [500, 0]) # comma 1st
+        #low_speed_factor = interp(CS.vEgo, [0, 10, 20], [500, 500, 200]) # comma 2nd
         #low_speed_factor = interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
       else:
         low_speed_factor = interp(CS.vEgo, [0, 5], [300, 0])
