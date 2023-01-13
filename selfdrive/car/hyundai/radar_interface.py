@@ -6,6 +6,7 @@ from opendbc.can.parser import CANParser
 from selfdrive.car.interfaces import RadarInterfaceBase
 from selfdrive.car.hyundai.values import DBC
 from common.params import Params
+from common.log import Loger
 
 RADAR_START_ADDR = 0x500
 RADAR_MSG_COUNT = 32
