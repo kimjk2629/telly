@@ -13,7 +13,7 @@ from selfdrive.car.isotp_parallel_query import IsoTpParallelQuery
 def enable_radar_tracks(CP, logcan, sendcan):
       # START: Try to enable radar tracks
   print("Try to enable radar tracks")
-  if CP.openpilotLongitudinalControl and CP.carFingerprint in [CAR.NEXO]:
+  if CP.openpilotLongitudinalControl and CP.carFingerprint in [CAR.SANTA_FE]:
     rdr_fw = None
     rdr_fw_address = 0x7d0 #일부차량은 다름..
     if True:
