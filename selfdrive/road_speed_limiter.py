@@ -26,8 +26,11 @@ class Port:
 class RoadLimitSpeedServer:
   def __init__(self):
     self.json_road_limit = None
+    self.json_apilot = None
     self.active = 0
+    self.active_apilot = 0
     self.last_updated = 0
+    self.last_updated_apilot = 0
     self.last_updated_active = 0
     self.last_exception = None
     self.lock = threading.Lock()
@@ -126,7 +129,7 @@ class RoadLimitSpeedServer:
             if broadcast_address is None or frame % 10 == 0:
               broadcast_address = self.get_broadcast_address()
 
-            print('broadcast_address', broadcast_address)
+            #print('broadcast_address', broadcast_address)
 
             if broadcast_address is not None:
               address = (broadcast_address, Port.BROADCAST_PORT)
@@ -143,17 +146,20 @@ class RoadLimitSpeedServer:
   def send_sdp(self, sock):
     try:
       sock.sendto('EON:ROAD_LIMIT_SERVICE:v1'.encode(), (self.remote_addr[0], Port.BROADCAST_PORT))
+      #print(self.remote_addr[0])
+      sock.sendto('EON:ROAD_LIMIT_SERVICE:v1'.encode(), (self.remote_addr[0], 2898))
     except:
       pass
 
   def udp_recv(self, sock):
     ret = False
     try:
-      ready = select.select([sock], [], [], 1.)
+      ready = select.select([sock], [], [], 0.5)
       ret = bool(ready[0])
       if ret:
         data, self.remote_addr = sock.recvfrom(2048)
         json_obj = json.loads(data.decode())
+        #print(json_obj)
 
         if 'cmd' in json_obj:
           try:
@@ -193,6 +199,10 @@ class RoadLimitSpeedServer:
             self.json_road_limit = json_obj['road_limit']
             self.last_updated = sec_since_boot()
 
+          if 'apilot' in json_obj:
+            self.json_apilot = json_obj['apilot']
+            self.last_updated_apilot = sec_since_boot()
+
         finally:
           self.lock.release()
 
@@ -215,11 +225,24 @@ class RoadLimitSpeedServer:
       finally:
         self.lock.release()
 
+    if now - self.last_updated_apilot > 6.:
+      try:
+        self.lock.acquire()
+        self.json_apilot = None
+        self.active_apilot = 0
+      finally:
+        self.lock.release()
+
     if now - self.last_updated_active > 6.:
       self.active = 0
 
+
   def get_limit_val(self, key, default=None):
     return self.get_json_val(self.json_road_limit, key, default)
+
+  def get_apilot_val(self, key, default=None):
+    return self.get_json_val(self.json_apilot, key, default)
+
 
   def get_json_val(self, json, key, default=None):
 
@@ -240,9 +263,25 @@ def main():
   server = RoadLimitSpeedServer()
   roadLimitSpeed = messaging.pub_sock('roadLimitSpeed')
 
+  sock_carState = messaging.sub_sock("carState")
+  carState = None
+
+  xTurnInfo = -1
+  xDistToTurn = -1
+  xSpdDist = -1
+  xSpdLimit = -1
+  xSignType = -1
+  xRoadSignType = -1
+  xRoadLimitSpeed = -1
+  xRoadName = ""
+
+  xBumpDistance = 0
+  xTurnInfo_prev = xTurnInfo
+
+  totalDistance = 0.0
+
   with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
     try:
-
       try:
         sock.bind(('0.0.0.0', 843))
       except:
@@ -254,6 +293,13 @@ def main():
 
         server.udp_recv(sock)
 
+        try:
+          dat = messaging.recv_sock(sock_carState, wait=False)
+          if dat is not None:
+            carState = dat.carState
+        except:
+          pass
+
         dat = messaging.new_message()
         dat.init('roadLimitSpeed')
         dat.roadLimitSpeed.active = server.active
@@ -264,30 +310,121 @@ def main():
         dat.roadLimitSpeed.camLimitSpeed = server.get_limit_val("cam_limit_speed", 0)
         dat.roadLimitSpeed.sectionLimitSpeed = server.get_limit_val("section_limit_speed", 0)
         dat.roadLimitSpeed.sectionLeftDist = server.get_limit_val("section_left_dist", 0)
+        dat.roadLimitSpeed.sectionAvgSpeed = server.get_limit_val("section_avg_speed", 0)
+        dat.roadLimitSpeed.sectionLeftTime = server.get_limit_val("section_left_time", 0)
+        dat.roadLimitSpeed.sectionAdjustSpeed = server.get_limit_val("section_adjust_speed", False)
         dat.roadLimitSpeed.camSpeedFactor = server.get_limit_val("cam_speed_factor", CAMERA_SPEED_FACTOR)
+        xRoadName = server.get_limit_val("current_road_name", "")
 
+        atype = server.get_apilot_val("type")
+        value = server.get_apilot_val("value")
+        atype = "none" if atype is None else atype
+        value = "-1" if value is None else value
         try:
-          json = server.json_road_limit
-          if json is not None and "rest_area" in json:
-
-            restAreaList = []
-            for rest_area in json["rest_area"]:
-              restArea = log.RoadLimitSpeed.RestArea.new_message()
-              restArea.image = server.get_json_val(rest_area, "image")
-              restArea.title = server.get_json_val(rest_area, "title")
-              restArea.oilPrice = server.get_json_val(rest_area, "oilPrice")
-              restArea.distance = server.get_json_val(rest_area, "distance")
-              restAreaList.append(restArea)
-
-            dat.roadLimitSpeed.restArea = restAreaList
+          value_int = int(value)
         except:
+          value_int = -100
+
+        now = sec_since_boot()
+        #print(atype, value)
+        delta_dist = 0.0
+        if carState is not None:
+          CS = carState
+          delta_dist = CS.totalDistance - totalDistance
+          totalDistance = CS.totalDistance
+          if CS.gasPressed:
+            xBumpDistance = -1
+            if xSignType == 124:
+              xSignType = -1
+
+        if atype == 'none':
           pass
+        elif atype == 'opkrturninfo':
+          xTurnInfo = value_int
+        elif atype == 'opkrdistancetoturn':
+          xDistToTurn = value_int
+        elif atype == 'opkrspddist':
+          xSpdDist = value_int
+        elif atype == 'opkrspdlimit':
+          xSpdLimit = value_int
+        elif atype == 'opkrsigntype':
+          xSignType = value_int
+        elif atype == 'opkrroadsigntype':
+          xRoadSignType = value_int
+        elif atype == 'opkrroadlimitspeed':
+          xRoadLimitSpeed = value_int
+        elif atype == 'opkrwazecurrentspd':
+          pass
+        elif atype == 'opkrwazeroadname':
+          xRoadName = value
+        elif atype == 'opkrwazenavsign':
+          if value == '2131230983': # ������
+            xTurnInfo = -1
+          elif value == '2131230988': # turnLeft
+            xTurnInfo = 1
+          elif value == '2131230989': # turnRight
+            xTurnInfo = 2
+          elif value == '2131230985': 
+            xTurnInfo = 4
+          else:
+            xTurnInfo = value_int
+          xTurnInfo_prev = xTurnInfo
+        elif atype == 'opkrwazenavdist':
+          xDistToTurn = value_int
+          if xTurnInfo<0:
+            xTurnInfo = xTurnInfo_prev
+        elif atype == 'opkrwazeroadspdlimit':
+          xRoadLimitSpeed = value_int
+        elif atype == 'opkrwazealertdist':
+          pass
+        elif atype == 'opkrwazereportid':
+          pass
+        elif atype == 'apilotman':
+          server.active_apilot = 1
+        else:
+          print("unknown{}={}".format(atype, value))
+        #dat.roadLimitSpeed.xRoadName = apilot_val['opkrroadname']['value']
+
+        if xTurnInfo >= 0:
+          xDistToTurn -= delta_dist
+          if xDistToTurn < 0:
+            xTurnInfo = -1
+
+        if xSpdLimit >= 0:
+          xSpdDist -= delta_dist
+          if xSpdDist < 0:
+            xSpdLimit = -1
+
+        if xBumpDistance > 0:
+          xBumpDistance -= delta_dist
+          if xBumpDistance <= 0 and xSignType == 124:
+            xSignType = -1
+
+        if xSignType == 124: ##���������
+          if xBumpDistance <= 0:
+            xBumpDistance = 100
+        else:
+          xBumpDistance = -1
+
+        if server.active_apilot:
+          dat.roadLimitSpeed.active = 100 + server.active
+        #print("turn={},{}".format(xTurnInfo, xDistToTurn))
+        dat.roadLimitSpeed.xTurnInfo = int(xTurnInfo)
+        dat.roadLimitSpeed.xDistToTurn = int(xDistToTurn)
+        dat.roadLimitSpeed.xSpdDist = int(xSpdDist) if xBumpDistance <= 0 else int(xBumpDistance)
+        dat.roadLimitSpeed.xSpdLimit = int(xSpdLimit) if xBumpDistance <= 0 else 35 # �ӵ��� ���������ؾ���. �ϴ� 35
+        dat.roadLimitSpeed.xSignType = int(xSignType)
+        dat.roadLimitSpeed.xRoadSignType = int(xRoadSignType)
+        dat.roadLimitSpeed.xRoadLimitSpeed = int(xRoadLimitSpeed)
+        dat.roadLimitSpeed.xRoadName = xRoadName
 
         roadLimitSpeed.send(dat.to_bytes())
         server.send_sdp(sock)
         server.check()
+        time.sleep(0.03)
 
     except Exception as e:
+      print(e)
       server.last_exception = e
 
 
@@ -295,6 +432,7 @@ class RoadSpeedLimiter:
   def __init__(self):
     self.slowing_down = False
     self.started_dist = 0
+    self.session_limit = False
 
     self.sock = messaging.sub_sock("roadLimitSpeed")
     self.roadLimitSpeed = None
@@ -310,10 +448,10 @@ class RoadSpeedLimiter:
   def get_active(self):
     self.recv()
     if self.roadLimitSpeed is not None:
-      return self.roadLimitSpeed.active
+      return self.roadLimitSpeed.active % 100
     return 0
 
-  def get_max_speed(self, cluster_speed, is_metric):
+  def get_max_speed(self, CS, cluster_speed, is_metric, autoNaviSpeedCtrlStart=22, autoNaviSpeedCtrlEnd=6):
 
     log = ""
     self.recv()
@@ -322,7 +460,6 @@ class RoadSpeedLimiter:
       return 0, 0, 0, False, ""
 
     try:
-
       road_limit_speed = self.roadLimitSpeed.roadLimitSpeed
       is_highway = self.roadLimitSpeed.isHighway
 
@@ -331,11 +468,35 @@ class RoadSpeedLimiter:
       cam_limit_speed_left_dist = self.roadLimitSpeed.camLimitSpeedLeftDist
       cam_limit_speed = self.roadLimitSpeed.camLimitSpeed
 
+      if self.roadLimitSpeed.xSpdLimit > 0 and self.roadLimitSpeed.xSpdDist > 0:
+        cam_limit_speed_left_dist = self.roadLimitSpeed.xSpdDist
+        cam_limit_speed = self.roadLimitSpeed.xSpdLimit
+        self.session_limit = True if (self.roadLimitSpeed.xSignType == 165) or (cam_limit_speed_left_dist > 3000) else False
+        log = "limit={:.1f},{:.1f}".format(self.roadLimitSpeed.xSpdLimit, self.roadLimitSpeed.xSpdDist)
+
+        self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
+
+      if CS.speedLimit>0 and CS.speedLimitDistance>0:
+        log = "hda_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
+
+      if cam_limit_speed <= 0:
+        if CS.speedLimit>0 and CS.speedLimitDistance>0:
+          cam_limit_speed_left_dist = CS.speedLimitDistance
+          cam_limit_speed = CS.speedLimit
+          self.session_limit = True if cam_limit_speed_left_dist > 3000 else False
+          #log = "hda_limit={:.1f},{:.1f}".format(float(CS.speedLimit), CS.speedLimitDistance)
+
+          self.session_limit = False if cam_limit_speed_left_dist < 50 else self.session_limit
+
       section_limit_speed = self.roadLimitSpeed.sectionLimitSpeed
       section_left_dist = self.roadLimitSpeed.sectionLeftDist
+      section_avg_speed = self.roadLimitSpeed.sectionAvgSpeed
+      section_left_time = self.roadLimitSpeed.sectionLeftTime
+      section_adjust_speed = self.roadLimitSpeed.sectionAdjustSpeed
+
       camSpeedFactor = clip(self.roadLimitSpeed.camSpeedFactor, 1.0, 1.1)
 
-      if is_highway is not None:
+      if False and is_highway is not None:
         if is_highway:
           MIN_LIMIT = 40
           MAX_LIMIT = 120
@@ -348,6 +509,7 @@ class RoadSpeedLimiter:
 
       if cam_type == 22:  # speed bump
         MIN_LIMIT = 10
+        print("BUMP: SP={},DIST={}", cam_limit_speed, cam_limit_speed_left_dist)
 
       if cam_limit_speed_left_dist is not None and cam_limit_speed is not None and cam_limit_speed_left_dist > 0:
 
@@ -355,12 +517,13 @@ class RoadSpeedLimiter:
         diff_speed = cluster_speed - (cam_limit_speed * camSpeedFactor)
         #cam_limit_speed_ms = cam_limit_speed * (CV.KPH_TO_MS if is_metric else CV.MPH_TO_MS)
 
-        starting_dist = v_ego * 30.
+        #starting_dist = v_ego * 30.
+        starting_dist = v_ego * autoNaviSpeedCtrlStart
 
         if cam_type == 22:
           safe_dist = v_ego * 3.
         else:
-          safe_dist = v_ego * 6.
+          safe_dist = v_ego * autoNaviSpeedCtrlEnd
 
         if MIN_LIMIT <= cam_limit_speed <= MAX_LIMIT and (self.slowing_down or cam_limit_speed_left_dist < starting_dist):
           if not self.slowing_down:
@@ -373,7 +536,7 @@ class RoadSpeedLimiter:
           td = self.started_dist - safe_dist
           d = cam_limit_speed_left_dist - safe_dist
 
-          if d > 0. and td > 0. and diff_speed > 0. and (section_left_dist is None or section_left_dist < 10):
+          if d > 0. and td > 0. and diff_speed > 0. and (section_left_dist is None or section_left_dist < 10 or cam_type == 2) and not self.session_limit:
             pp = (d / td) ** 0.6
           else:
             pp = 0
@@ -393,7 +556,11 @@ class RoadSpeedLimiter:
           else:
             first_started = False
 
-          return section_limit_speed * camSpeedFactor, section_limit_speed, section_left_dist, first_started, log
+          speed_diff = 0
+          if section_adjust_speed is not None and section_adjust_speed:
+            speed_diff = (section_limit_speed - section_avg_speed) / 2.
+
+          return section_limit_speed * camSpeedFactor + speed_diff, section_limit_speed, section_left_dist, first_started, log
 
         self.slowing_down = False
         return 0, section_limit_speed, section_left_dist, False, log
